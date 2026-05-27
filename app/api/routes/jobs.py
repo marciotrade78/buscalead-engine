@@ -1,0 +1,17 @@
+from fastapi import APIRouter, Depends
+
+from app.auth.dependencies import CurrentUser, get_current_user
+from app.jobs.celery_app import celery_app
+from app.schemas.jobs import JobStatusResponse
+
+router = APIRouter()
+
+
+@router.get("/{job_id}", response_model=JobStatusResponse)
+async def get_job_status(
+    job_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> JobStatusResponse:
+    result = celery_app.AsyncResult(job_id)
+    payload = result.result if result.successful() and isinstance(result.result, dict) else None
+    return JobStatusResponse(job_id=job_id, status=result.status.lower(), result=payload)
