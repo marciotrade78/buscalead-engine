@@ -10,3 +10,5 @@ venv/
 htmlcov/
 playwright-report/
 test-results/
+*.log
+*.err.log
