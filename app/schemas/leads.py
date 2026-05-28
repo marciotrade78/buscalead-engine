@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -27,3 +29,10 @@ class LeadSearchResultResponse(BaseModel):
     location: str
     total: int
     leads: list[LeadResponse]
+
+
+class LeadAnalysisResponse(BaseModel):
+    id: str
+    lead_id: str
+    opportunity_score: float | None = None
+    diagnosis: dict[str, Any]

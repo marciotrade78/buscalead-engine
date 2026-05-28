@@ -1,10 +1,17 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentUser, get_current_user
 from app.db.session import get_db_session
 from app.schemas.common import JobAcceptedResponse
-from app.schemas.leads import LeadResponse, LeadSearchRequest, LeadSearchResultResponse
+from app.repositories.analyses import AnalysisRepository
+from app.repositories.leads import LeadRepository
+from app.schemas.leads import (
+    LeadAnalysisResponse,
+    LeadResponse,
+    LeadSearchRequest,
+    LeadSearchResultResponse,
+)
 from app.services.lead_search_service import LeadSearchService
 
 router = APIRouter()
@@ -38,6 +45,22 @@ async def list_leads(
     session: AsyncSession = Depends(get_db_session),
 ) -> list[LeadResponse]:
     return await LeadSearchService().list_leads(current_user=current_user, session=session)
+
+
+@router.get("/{lead_id}/analysis", response_model=LeadAnalysisResponse)
+async def get_latest_analysis(
+    lead_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> LeadAnalysisResponse:
+    lead = await LeadRepository(session).get_by_id(lead_id, current_user.user_id)
+    if lead is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+
+    analysis = await AnalysisRepository(session).get_latest_for_lead(lead_id, current_user.user_id)
+    if analysis is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found")
+    return LeadAnalysisResponse(**analysis)
 
 
 @router.post("/{lead_id}/refresh", response_model=JobAcceptedResponse, status_code=status.HTTP_202_ACCEPTED)

@@ -14,7 +14,7 @@ def search_leads_job(payload: dict, user_id: str) -> dict:
 
 @celery_app.task(name="lead.refresh")
 def refresh_lead_job(lead_id: str, user_id: str) -> dict:
-    raise NotImplementedError
+    return asyncio.run(_refresh_lead(lead_id, user_id))
 
 
 async def _search_leads(payload: dict, user_id: str) -> dict:
@@ -23,3 +23,9 @@ async def _search_leads(payload: dict, user_id: str) -> dict:
         current_user = CurrentUser(user_id=user_id)
         result = await LeadSearchService().search_now(typed_payload, current_user, session)
         return result.model_dump()
+
+
+async def _refresh_lead(lead_id: str, user_id: str) -> dict:
+    async with AsyncSessionLocal() as session:
+        current_user = CurrentUser(user_id=user_id)
+        return await LeadSearchService().refresh_now(lead_id, current_user, session)

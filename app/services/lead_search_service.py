@@ -1,5 +1,3 @@
-from uuid import uuid4
-
 import httpx
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,8 +31,11 @@ class LeadSearchService:
         )
 
     def queue_analysis(self, lead_id: str, current_user: CurrentUser) -> JobAcceptedResponse:
+        from app.jobs.analysis_jobs import analyze_lead_job
+
+        job = analyze_lead_job.delay(lead_id, current_user.user_id)
         return JobAcceptedResponse(
-            job_id=str(uuid4()),
+            job_id=job.id,
             message="Lead analysis queued",
         )
 
@@ -87,6 +88,39 @@ class LeadSearchService:
             total=len(leads),
             leads=leads,
         )
+
+    async def refresh_now(
+        self,
+        lead_id: str,
+        current_user: CurrentUser,
+        session: AsyncSession,
+    ) -> dict:
+        if not settings.google_places_api_key:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="GOOGLE_PLACES_API_KEY is not configured",
+            )
+
+        repository = LeadRepository(session)
+        lead = await repository.get_by_id(lead_id, current_user.user_id)
+        if lead is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+
+        google_place_id = lead.get("google_place_id")
+        if not google_place_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Lead does not have a google_place_id to refresh",
+            )
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            places = GooglePlacesProvider(api_key=settings.google_places_api_key, client=client)
+            details = await places.get_place_details(google_place_id)
+
+        normalized = self.normalize_place(details)
+        refreshed = await repository.update_from_place(lead_id, current_user.user_id, normalized)
+        await session.commit()
+        return refreshed or {}
 
     async def list_leads(self, current_user: CurrentUser, session: AsyncSession) -> list[dict]:
         return await LeadRepository(session).list_by_user(current_user.user_id)

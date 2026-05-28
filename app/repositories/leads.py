@@ -24,7 +24,60 @@ class LeadRepository:
             lead = Lead(id=str(uuid4()), user_id=user_id)
             self.session.add(lead)
 
-        lead.google_place_id = google_place_id
+        self.apply_place_payload(lead, payload)
+
+        await self.session.flush()
+        return self.to_dict(lead)
+
+    async def update_from_place(self, lead_id: str, user_id: str, payload: dict) -> dict | None:
+        result = await self.session.execute(
+            select(Lead).where(Lead.id == lead_id, Lead.user_id == user_id)
+        )
+        lead = result.scalar_one_or_none()
+        if lead is None:
+            return None
+
+        self.apply_place_payload(lead, payload)
+        await self.session.flush()
+        return self.to_dict(lead)
+
+    async def get_by_id(self, lead_id: str, user_id: str) -> dict | None:
+        result = await self.session.execute(
+            select(Lead).where(Lead.id == lead_id, Lead.user_id == user_id)
+        )
+        lead = result.scalar_one_or_none()
+        if lead is None:
+            return None
+        return self.to_dict(lead)
+
+
+    async def list_competitors(
+        self,
+        lead: dict,
+        user_id: str,
+        limit: int = 20,
+    ) -> list[dict]:
+        filters = [Lead.user_id == user_id, Lead.id != lead["id"]]
+        if lead.get("category"):
+            filters.append(Lead.category == lead["category"])
+
+        result = await self.session.execute(
+            select(Lead)
+            .where(*filters)
+            .order_by(Lead.review_count.desc().nullslast(), Lead.rating.desc().nullslast())
+            .limit(limit)
+        )
+        return [self.to_dict(item) for item in result.scalars().all()]
+
+    async def list_by_user(self, user_id: str, limit: int = 100) -> list[dict]:
+        result = await self.session.execute(
+            select(Lead).where(Lead.user_id == user_id).order_by(Lead.created_at.desc()).limit(limit)
+        )
+        return [self.to_dict(lead) for lead in result.scalars().all()]
+
+    @staticmethod
+    def apply_place_payload(lead: Lead, payload: dict) -> None:
+        lead.google_place_id = payload.get("google_place_id")
         lead.name = payload["name"]
         lead.address = payload.get("address")
         lead.phone = payload.get("phone")
@@ -34,15 +87,6 @@ class LeadRepository:
         lead.category = payload.get("category")
         lead.latitude = payload.get("latitude")
         lead.longitude = payload.get("longitude")
-
-        await self.session.flush()
-        return self.to_dict(lead)
-
-    async def list_by_user(self, user_id: str, limit: int = 100) -> list[dict]:
-        result = await self.session.execute(
-            select(Lead).where(Lead.user_id == user_id).order_by(Lead.created_at.desc()).limit(limit)
-        )
-        return [self.to_dict(lead) for lead in result.scalars().all()]
 
     @staticmethod
     def to_dict(lead: Lead) -> dict:
