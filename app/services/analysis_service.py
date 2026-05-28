@@ -17,6 +17,7 @@ from app.providers.ai import (
     select_ai_provider,
 )
 from app.providers.google_suggest import GoogleSuggestProvider
+from app.providers.meta_intelligence import MetaIntelligenceProvider
 from app.providers.pagespeed import PageSpeedProvider
 from app.providers.web_scraper import WebScraperProvider
 from app.repositories.analyses import AnalysisRepository
@@ -30,6 +31,7 @@ class AnalysisService:
         self.seo = SeoAnalyzer()
         self.opportunity_score = OpportunityScoreAnalyzer()
         self.keywords = KeywordResearchAnalyzer()
+        self.meta_intelligence = MetaIntelligenceProvider()
 
     async def analyze_lead(
         self,
@@ -58,6 +60,7 @@ class AnalysisService:
         )
         keyword_niche = lead.get("category") or lead.get("name") or "empresa local"
         keyword_location = lead.get("address") or "regiao local"
+        meta_intelligence = await self.meta_intelligence.collect_signals(lead)
         keyword_suggestions = await self._fetch_keyword_suggestions(keyword_niche, keyword_location)
         keyword_research = self.keywords.analyze(
             niche=keyword_niche,
@@ -71,6 +74,7 @@ class AnalysisService:
             "competitive": competitive,
             "keywords": keyword_research,
             "opportunity": opportunity,
+            "meta_intelligence": meta_intelligence,
             "summary": self._build_summary(lead, opportunity),
         }
         diagnosis["ai_insights"] = await self._generate_ai_insights(diagnosis)
@@ -85,7 +89,6 @@ class AnalysisService:
         )
         await session.commit()
         return saved
-
 
     async def _generate_ai_insights(self, diagnosis: dict) -> dict:
         schema = ai_insights_schema()
