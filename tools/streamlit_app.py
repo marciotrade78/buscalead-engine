@@ -74,6 +74,116 @@ def poll_job(job_id: str, headers: dict[str, str], label: str, timeout_seconds: 
     return {"status": "timeout", "error": "Tempo limite ao aguardar o job", "last_payload": last_payload}
 
 
+def as_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if value in (None, ""):
+        return []
+    return [value]
+
+
+def priority_from_score(score: float | int | None, priority: str | None) -> tuple[str, str]:
+    if priority:
+        labels = {
+            "high": "Alta",
+            "medium": "Media",
+            "low": "Baixa",
+        }
+        label = labels.get(priority.lower(), priority.title())
+    elif score is None:
+        label = "Indefinida"
+    elif score >= 70:
+        label = "Alta"
+    elif score >= 35:
+        label = "Media"
+    else:
+        label = "Baixa"
+
+    if label == "Alta":
+        conclusion = "Lead com boa oportunidade comercial. Vale priorizar uma abordagem consultiva."
+    elif label == "Media":
+        conclusion = "Lead com sinais mistos. Vale abordar se houver capacidade de prospeccao."
+    elif label == "Baixa":
+        conclusion = "Lead com menor urgencia aparente. Melhor usar como teste ou abordagem leve."
+    else:
+        conclusion = "Ainda nao ha sinais suficientes para definir prioridade."
+    return label, conclusion
+
+
+def render_bullets(title: str, items: list[Any], empty_text: str) -> None:
+    st.markdown(f"**{title}**")
+    if not items:
+        st.caption(empty_text)
+        return
+    for item in items[:6]:
+        if isinstance(item, dict):
+            label = item.get("label") or item.get("type") or "Sinal"
+            insight = item.get("insight") or item.get("reason") or item
+            st.write(f"- {label}: {insight}")
+        else:
+            st.write(f"- {item}")
+
+
+def render_analysis_summary(analysis: dict[str, Any]) -> None:
+    diagnosis = analysis.get("diagnosis") or {}
+    lead = diagnosis.get("lead") or {}
+    opportunity = diagnosis.get("opportunity") or {}
+    digital = diagnosis.get("digital_presence") or {}
+    seo = diagnosis.get("seo") or {}
+    competitive = diagnosis.get("competitive") or {}
+    meta = diagnosis.get("meta_intelligence") or {}
+    ai = diagnosis.get("ai_insights") or {}
+
+    score = analysis.get("opportunity_score") or opportunity.get("score")
+    priority, conclusion = priority_from_score(score, opportunity.get("priority"))
+
+    st.success(conclusion)
+
+    metric_a, metric_b, metric_c, metric_d = st.columns(4)
+    metric_a.metric("Prioridade", priority)
+    metric_b.metric("Score", "-" if score is None else f"{score}/100")
+    metric_c.metric("Presenca", digital.get("presence_level", "-"))
+    metric_d.metric("IA", ai.get("provider", ai.get("status", "-")))
+
+    st.subheader("Resumo do lead")
+    lead_name = lead.get("name") or "Lead"
+    lead_phone = lead.get("phone") or "telefone nao informado"
+    lead_rating = lead.get("rating", "-")
+    lead_reviews = lead.get("review_count", "-")
+    st.write(f"**{lead_name}** | {lead_phone} | Nota {lead_rating} com {lead_reviews} avaliacoes")
+    if diagnosis.get("summary"):
+        st.info(diagnosis["summary"])
+    if ai.get("summary"):
+        st.write(ai["summary"])
+
+    st.subheader("O que usar na abordagem")
+    col_left, col_right = st.columns(2)
+    with col_left:
+        render_bullets("Problemas encontrados", as_list(digital.get("issues")) + as_list(seo.get("issues")), "Nenhum problema forte encontrado.")
+        render_bullets("Oportunidades", as_list(seo.get("opportunities")) + as_list(competitive.get("opportunities")), "Nenhuma oportunidade clara encontrada.")
+    with col_right:
+        render_bullets("Pontos fortes", as_list(digital.get("strengths")) + as_list(competitive.get("advantages")), "Poucos pontos fortes detectados.")
+        render_bullets("Ganchos de venda", as_list(meta.get("conversion_hooks")), "Sem gancho especifico gerado.")
+
+    if ai.get("sales_angle") or ai.get("recommended_pitch"):
+        st.subheader("Argumento comercial sugerido")
+        if ai.get("sales_angle"):
+            st.write(ai["sales_angle"])
+        if ai.get("recommended_pitch"):
+            st.info(ai["recommended_pitch"])
+
+    if ai.get("whatsapp_message"):
+        st.subheader("Mensagem pronta para WhatsApp")
+        st.code(ai["whatsapp_message"], language="text")
+
+    next_actions = as_list(ai.get("next_best_actions")) or as_list(digital.get("recommended_actions"))
+    render_bullets("Proximas acoes", next_actions, "Nenhuma proxima acao gerada.")
+
+    if ai.get("objection_handling"):
+        with st.expander("Como responder objecao"):
+            st.write(ai["objection_handling"])
+
+
 def render_lead_card(lead: dict[str, Any], headers: dict[str, str]) -> None:
     title = lead.get("name") or "Lead sem nome"
     with st.container(border=True):
@@ -93,17 +203,22 @@ def render_lead_card(lead: dict[str, Any], headers: dict[str, str]) -> None:
                 analyze_response = post_json(f"/leads/{lead_id}/analyze", None, headers)
                 accepted = response_json(analyze_response)
                 st.write("Status da solicitacao:", analyze_response.status_code)
-                st.json(accepted)
+                with st.expander("Resposta da solicitacao"):
+                    st.json(accepted)
 
                 if isinstance(accepted, dict) and accepted.get("job_id"):
                     job_payload = poll_job(accepted["job_id"], headers, "Analise")
-                    st.write("Resultado do job")
-                    st.json(job_payload)
 
                     if job_payload.get("status") == "completed":
                         analysis_response = get_json(f"/leads/{lead_id}/analysis", headers)
-                        st.write("Analise persistida")
-                        st.json(response_json(analysis_response))
+                        analysis_payload = response_json(analysis_response)
+                        if isinstance(analysis_payload, dict):
+                            render_analysis_summary(analysis_payload)
+                        with st.expander("JSON completo da analise"):
+                            st.json(analysis_payload)
+                    else:
+                        st.error("A analise nao terminou com sucesso.")
+                        st.json(job_payload)
 
 
 st.set_page_config(page_title="Teste Petshop Curitiba", layout="wide")
@@ -157,12 +272,13 @@ if run_search:
     response = post_json("/leads/search", payload, headers)
     accepted = response_json(response)
     st.write("Status da busca:", response.status_code)
-    st.json(accepted)
+    with st.expander("Resposta da solicitacao de busca"):
+        st.json(accepted)
 
     if isinstance(accepted, dict) and accepted.get("job_id"):
         job_payload = poll_job(accepted["job_id"], headers, "Busca")
-        st.write("Resultado do job")
-        st.json(job_payload)
+        with st.expander("JSON do job de busca"):
+            st.json(job_payload)
 
         leads = []
         if job_payload.get("status") == "completed":
