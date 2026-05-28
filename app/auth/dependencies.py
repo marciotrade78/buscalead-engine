@@ -19,13 +19,20 @@ class CurrentUser:
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     lead_intelligence_key: str | None = Header(default=None, alias="x-lead-intelligence-key"),
+    lead_user_id: str | None = Header(default=None, alias="x-lead-user-id"),
+    lead_tenant_id: str | None = Header(default=None, alias="x-lead-tenant-id"),
+    lead_user_email: str | None = Header(default=None, alias="x-lead-user-email"),
 ) -> CurrentUser:
     if (
         settings.lead_intelligence_api_key
         and lead_intelligence_key
         and lead_intelligence_key == settings.lead_intelligence_api_key
     ):
-        return CurrentUser(user_id="service:lead-intelligence", tenant_id="local-test")
+        return CurrentUser(
+            user_id=lead_user_id or "service:lead-intelligence",
+            tenant_id=lead_tenant_id or lead_user_id or "service",
+            email=lead_user_email,
+        )
 
     if credentials is None:
         if settings.allow_dev_auth_fallback:

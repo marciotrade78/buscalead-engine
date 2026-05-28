@@ -22,6 +22,9 @@ Lovable Edge Function:
 ```http
 POST ${LEAD_INTELLIGENCE_URL}/api/v1/leads/search
 x-lead-intelligence-key: ${LEAD_INTELLIGENCE_API_KEY}
+x-lead-user-id: <Supabase user id>
+x-lead-tenant-id: <Supabase tenant id ou user id>
+x-lead-user-email: <Supabase user email>
 Content-Type: application/json
 
 {
@@ -49,6 +52,9 @@ Resposta:
 ```http
 GET ${LEAD_INTELLIGENCE_URL}/api/v1/jobs/{job_id}
 x-lead-intelligence-key: ${LEAD_INTELLIGENCE_API_KEY}
+x-lead-user-id: <Supabase user id>
+x-lead-tenant-id: <Supabase tenant id ou user id>
+x-lead-user-email: <Supabase user email>
 ```
 
 ## Listar leads salvos
@@ -56,13 +62,16 @@ x-lead-intelligence-key: ${LEAD_INTELLIGENCE_API_KEY}
 ```http
 GET ${LEAD_INTELLIGENCE_URL}/api/v1/leads
 x-lead-intelligence-key: ${LEAD_INTELLIGENCE_API_KEY}
+x-lead-user-id: <Supabase user id>
+x-lead-tenant-id: <Supabase tenant id ou user id>
+x-lead-user-email: <Supabase user email>
 ```
 
 ## Fluxo recomendado no Lovable
 
 1. Usuario informa nicho e localizacao no Lovable.
 2. Lovable chama uma Edge Function propria.
-3. A Edge Function chama o backend Python com `x-lead-intelligence-key`.
+3. A Edge Function chama o backend Python com `x-lead-intelligence-key` e encaminha `x-lead-user-id`, `x-lead-tenant-id` e `x-lead-user-email` a partir do JWT ja validado.
 4. Backend Python busca no Google, salva no Postgres/Supabase e retorna `job_id`.
 5. Lovable consulta `/api/v1/jobs/{job_id}` ate finalizar.
 6. Lovable lista os leads salvos e renderiza mapa/cards/pipeline.
@@ -92,6 +101,9 @@ Para o painel Streamlit ou depuracao local:
 ```http
 POST ${LEAD_INTELLIGENCE_URL}/api/v1/leads/search/preview
 x-lead-intelligence-key: ${LEAD_INTELLIGENCE_API_KEY}
+x-lead-user-id: <Supabase user id>
+x-lead-tenant-id: <Supabase tenant id ou user id>
+x-lead-user-email: <Supabase user email>
 Content-Type: application/json
 ```
 
