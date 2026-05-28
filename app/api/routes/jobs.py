@@ -9,6 +9,19 @@ from app.schemas.jobs import JobStatusResponse
 router = APIRouter()
 
 
+def normalize_job_status(status: str) -> str:
+    normalized = status.lower()
+    status_map = {
+        "pending": "queued",
+        "started": "started",
+        "retry": "queued",
+        "success": "completed",
+        "failure": "failed",
+        "revoked": "failed",
+    }
+    return status_map.get(normalized, normalized)
+
+
 def format_job_error(error: object) -> str | None:
     if error is None:
         return None
@@ -34,7 +47,7 @@ async def get_job_status(
     error = format_job_error(result.result) if result.failed() else None
     return JobStatusResponse(
         job_id=job_id,
-        status=result.status.lower(),
+        status=normalize_job_status(result.status),
         result=payload,
         error=error,
     )
