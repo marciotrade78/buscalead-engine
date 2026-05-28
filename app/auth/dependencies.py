@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.auth.jwt import verify_supabase_jwt
@@ -28,11 +28,13 @@ async def get_current_user(
         return CurrentUser(user_id="service:lead-intelligence", tenant_id="local-test")
 
     if credentials is None:
-        return CurrentUser(
-            user_id="local-dev-user",
-            tenant_id="local-dev",
-            email="dev@local",
-        )
+        if settings.allow_dev_auth_fallback:
+            return CurrentUser(
+                user_id="local-dev-user",
+                tenant_id="local-dev",
+                email="dev@local",
+            )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
 
     claims = verify_supabase_jwt(credentials.credentials)
     return CurrentUser(

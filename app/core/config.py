@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     app_env: str = "local"
     app_debug: bool = False
     api_v1_prefix: str = "/api/v1"
+    cors_allowed_origins: str = ""
+    allow_dev_auth_fallback: bool = True
 
     database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:5432/busca_lead")
     redis_url: str = "redis://localhost:6379/0"
@@ -44,6 +46,10 @@ class Settings(BaseSettings):
     rate_limit_lead_analysis: str = "100/day"
 
     log_level: str = "INFO"
+
+
+def parse_csv_setting(value: str) -> list[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 
 @lru_cache

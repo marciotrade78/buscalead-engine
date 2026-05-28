@@ -7,9 +7,13 @@ Este documento descreve como o Lovable deve conversar com o backend Python.
 ```env
 LEAD_INTELLIGENCE_URL=https://<backend-python>
 LEAD_INTELLIGENCE_API_KEY=<mesmo valor configurado no backend>
+CORS_ALLOWED_ORIGINS=https://<seu-app-lovable>
+ALLOW_DEV_AUTH_FALLBACK=false
 ```
 
 `LEAD_INTELLIGENCE_API_KEY` deve ser usado apenas em Edge Functions/server-side. Nao exponha esse segredo em componentes React.
+
+Em producao, mantenha `ALLOW_DEV_AUTH_FALLBACK=false` para bloquear chamadas sem JWT Supabase ou sem `x-lead-intelligence-key`. Preencha `CORS_ALLOWED_ORIGINS` com o dominio do Lovable quando chamadas diretas do navegador forem necessarias; chamadas por Edge Function geralmente nao dependem de CORS.
 
 ## Busca de leads
 
