@@ -26,11 +26,23 @@ O Lovable deve permanecer responsavel por front-end, autenticacao visual e persi
 | Google Places API | `GOOGLE_PLACES_API_KEY` | Busca e detalhes de estabelecimentos locais |
 | Google Geocoding API | `GOOGLE_PLACES_API_KEY` | Converter cidade/endereco em latitude/longitude |
 | PageSpeed/Lighthouse | `PAGESPEED_API_KEY` | Performance e sinais tecnicos do site |
+| API LLM customizada | `CUSTOM_LLM_API_KEY`, `CUSTOM_LLM_BASE_URL`, `CUSTOM_LLM_MODEL` | Provedor OpenAI-compatible definido pelo usuario |
 | OpenAI/Gemini/Anthropic | `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` | IA direta para diagnosticos e keywords |
 | Mapbox | `MAPBOX_PUBLIC_TOKEN` | Renderizacao de mapa no Lovable/frontend |
 | Redis | `REDIS_URL` | Cache e suporte a filas |
 
 O Lovable AI Gateway nao deve ser migrado como dependencia do backend. No Python, chamadas de IA devem ir direto ao provedor escolhido, mantendo contrato estruturado em JSON.
+
+Para usar uma API propria ou outro LLM com contrato compativel com OpenAI Chat Completions, configure:
+
+```env
+CUSTOM_LLM_API_KEY=sua-chave
+CUSTOM_LLM_BASE_URL=https://sua-api.example.com/v1
+CUSTOM_LLM_MODEL=seu-modelo
+CUSTOM_LLM_PROVIDER_NAME=minha_api
+```
+
+Quando `CUSTOM_LLM_API_KEY` e `CUSTOM_LLM_BASE_URL` estiverem preenchidos, esse provedor tem prioridade sobre OpenAI, Gemini e Anthropic.
 
 ## Fluxo principal
 

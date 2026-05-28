@@ -16,6 +16,35 @@ def has_configured_key(api_key: str | None) -> bool:
 
 
 @dataclass(frozen=True)
+class CustomChatCompletionsProvider:
+    api_key: str
+    base_url: str
+    model: str
+    provider_name: str
+    client: httpx.AsyncClient
+
+    async def generate_json(self, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
+        response = await self.client.post(
+            _chat_completions_url(self.base_url),
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            json={
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": _system_prompt(schema)},
+                    {"role": "user", "content": prompt},
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.3,
+            },
+        )
+        response.raise_for_status()
+        content = response.json()["choices"][0]["message"]["content"]
+        payload = _safe_json_loads(content)
+        payload.setdefault("provider", self.provider_name)
+        return payload
+
+
+@dataclass(frozen=True)
 class OpenAiProvider:
     api_key: str
     model: str
@@ -120,6 +149,15 @@ def select_ai_provider(
     settings: Any,
     client: httpx.AsyncClient,
 ) -> tuple[str, AiProvider]:
+    if has_configured_key(getattr(settings, "custom_llm_api_key", "")) and getattr(settings, "custom_llm_base_url", ""):
+        provider_name = getattr(settings, "custom_llm_provider_name", "custom_llm") or "custom_llm"
+        return provider_name, CustomChatCompletionsProvider(
+            settings.custom_llm_api_key,
+            settings.custom_llm_base_url,
+            settings.custom_llm_model or "default",
+            provider_name,
+            client,
+        )
     if has_configured_key(settings.openai_api_key):
         return "openai", OpenAiProvider(settings.openai_api_key, settings.openai_model, client)
     if has_configured_key(settings.gemini_api_key):
@@ -147,6 +185,7 @@ def build_ai_prompt(diagnosis: dict[str, Any]) -> str:
         "digital_presence": diagnosis.get("digital_presence"),
         "seo": _compact_seo(diagnosis.get("seo") or {}),
         "competitive": diagnosis.get("competitive"),
+        "meta_intelligence": diagnosis.get("meta_intelligence"),
         "keywords": (diagnosis.get("keywords") or {}).get("terms", [])[:8],
         "opportunity": diagnosis.get("opportunity"),
     }
@@ -171,6 +210,13 @@ def normalize_ai_insights(provider_name: str, payload: dict[str, Any]) -> dict[s
     if "reason" in payload:
         result["reason"] = payload["reason"]
     return result
+
+
+def _chat_completions_url(base_url: str) -> str:
+    clean_url = base_url.rstrip("/")
+    if clean_url.endswith("/chat/completions"):
+        return clean_url
+    return f"{clean_url}/chat/completions"
 
 
 def _system_prompt(schema: dict[str, Any]) -> str:

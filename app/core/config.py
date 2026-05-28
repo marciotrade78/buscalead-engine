@@ -26,6 +26,10 @@ class Settings(BaseSettings):
 
     google_places_api_key: str = ""
     pagespeed_api_key: str = ""
+    custom_llm_api_key: str = ""
+    custom_llm_base_url: str = ""
+    custom_llm_model: str = ""
+    custom_llm_provider_name: str = "custom_llm"
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     gemini_api_key: str = ""
